@@ -4,6 +4,7 @@ import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.impute import SimpleImputer
 import pathlib
 
 pathlib.Path("models").mkdir(exist_ok=True)
@@ -20,9 +21,13 @@ def load_csvs():
     return pd.concat(dfs, ignore_index=True)
 
 def preprocess(df):
+    # Etiqueta: 1 si gana local, 0 si no
     df["result"] = df["FTR"].apply(lambda x: 1 if x == "H" else 0)
+
+    # Features clásicas
     features = ["FTHG","FTAG","HS","AS","HST","AST","HC","AC","HF","AF","HY","AY","HR","AR"]
 
+    # Features avanzadas
     if "xG" in df.columns:
         features.append("xG")
     if "xGA" in df.columns:
@@ -33,6 +38,11 @@ def preprocess(df):
 
     X = df[features]
     y = df["result"]
+
+    # Imputar valores faltantes con la media de cada columna
+    imputer = SimpleImputer(strategy="mean")
+    X = pd.DataFrame(imputer.fit_transform(X), columns=features)
+
     return X, y
 
 def train_model():
