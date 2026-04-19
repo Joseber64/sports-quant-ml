@@ -21,15 +21,23 @@ jobs:
       run: |
         pip install pandas scikit-learn joblib requests
 
+    # Paso 1: Testear la API con tu key
+    - name: Test Odds API key
+      run: python src/test_api.py
+
+    # Paso 2: Descargar datos en vivo
     - name: Run data pipeline (Odds API)
       run: python src/main.py
 
+    # Paso 3: Entrenar modelo con CSV históricos
     - name: Train model with historical CSVs
       run: python src/train.py
 
+    # Paso 4: Predecir con datos nuevos
     - name: Predict with new Odds data
       run: python src/predict.py || true
 
+    # Paso 5: Guardar outputs en el repo
     - name: Commit outputs
       run: |
         git config --global user.name "github-actions"
