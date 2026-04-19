@@ -4,6 +4,7 @@ import glob
 import pathlib
 import math
 from datetime import datetime
+from sklearn.impute import SimpleImputer
 
 pathlib.Path("data").mkdir(exist_ok=True)
 
@@ -16,7 +17,12 @@ def kelly_fraction(prob, odds):
     return (b * prob - q) / b if b > 0 else 0
 
 def load_model():
-    return joblib.load("models/top5_leagues_model.pkl")
+    files = glob.glob("models/top5_leagues_model_*.pkl")
+    if not files:
+        raise FileNotFoundError("No se encontró ningún modelo entrenado")
+    latest = max(files)
+    print(f"Usando modelo: {latest}")
+    return joblib.load(latest)
 
 def load_latest_odds():
     files = glob.glob("data/odds_*.csv")
@@ -44,6 +50,10 @@ def predict_new_matches():
 
     available = [col for col in features if col in odds_df.columns]
     X = odds_df[available]
+
+    imputer = SimpleImputer(strategy="mean")
+    X = pd.DataFrame(imputer.fit_transform(X), columns=available)
+
     teams = list(zip(odds_df.get("HomeTeam", ["?"]*len(odds_df)), odds_df.get("AwayTeam", ["?"]*len(odds_df))))
 
     preds = model.predict(X)
@@ -67,8 +77,7 @@ def predict_new_matches():
             "Kelly_Fraction": kelly
         })
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"data/predictions_{timestamp}.csv"
+    filename = f"data/predictions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     pd.DataFrame(results).to_csv(filename, index=False)
     print(f"Predicciones guardadas en {filename}")
 
