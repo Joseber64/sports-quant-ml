@@ -27,3 +27,12 @@ jobs:
         ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         ALL_SPORTS_API_KEY: ${{ secrets.ALL_SPORTS_API_KEY }}
       run: python src/main.py
+
+    - name: Commit CSV outputs
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add data/*.csv
+        git commit -m "Add latest API data"
+        git push
+
