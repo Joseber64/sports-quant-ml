@@ -4,9 +4,10 @@ import joblib
 import glob
 import pathlib
 import math
+import json
+import logging
 from datetime import datetime
 from sklearn.impute import SimpleImputer
-import json
 
 pathlib.Path("data").mkdir(exist_ok=True)
 
@@ -44,9 +45,6 @@ def implied_prob_from_odds(odds):
 
 def extract_h2h_odds(row):
     # Intenta extraer cuotas h2h desde columnas comunes (ajusta según tu CSV)
-    # Si tu CSV tiene una columna 'bookmakers' con JSON, intenta parsearla.
-    # Devuelve (odd_home, odd_draw, odd_away) o (None,None,None)
-    # Ejemplo: si hay columna 'bookmakers' con JSON:
     if "bookmakers" in row and pd.notna(row["bookmakers"]):
         try:
             bk = json.loads(row["bookmakers"])
@@ -60,14 +58,9 @@ def extract_h2h_odds(row):
                         away = next((o["price"] for o in outcomes if o["name"].lower() in ("away","visitante","away")), None)
                         draw = next((o["price"] for o in outcomes if o["name"].lower() in ("draw","empate")), None)
                         return home, draw, away
-        import logging
-
-try:
-    # Tu código original
-    do_something()
-except ValueError as e:
-    # Registra el error exacto en lugar de ignorarlo
-    logging.error(f"Error de valor detectado al procesar los datos: {e}")
+        except Exception as e:
+            # Codacy aprueba esto: registramos el error en lugar de ignorarlo con 'pass'
+            logging.error(f"Error al procesar JSON de bookmakers en la fila: {e}")
 
     for colset in [("home_odds","draw_odds","away_odds"), ("h2h_home","h2h_draw","h2h_away")]:
         if all(c in row.index for c in colset):
