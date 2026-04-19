@@ -35,4 +35,3 @@ jobs:
         git add data/*.csv
         git commit -m "Add latest API data"
         git push
-
