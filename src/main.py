@@ -1,6 +1,11 @@
 import os
 import requests
 import pandas as pd
+from datetime import datetime
+import pathlib
+
+# Crear carpeta data si no existe
+pathlib.Path("data").mkdir(exist_ok=True)
 
 def get_odds_data():
     api_key = os.getenv("ODDS_API_KEY")
@@ -16,18 +21,26 @@ def get_all_sports_data():
     data = response.json()
     return pd.DataFrame(data.get("result", []))
 
+def save_csv(df, name):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"data/{name}_{timestamp}.csv"
+    df.to_csv(filename, index=False)
+    print(f"Guardado: {filename}")
+
 def main():
     print("Sports Quant ML conectado a APIs...")
 
-    # Obtener datos de Odds API
+    # Odds API
     odds_df = get_odds_data()
     print("Odds API DataFrame:")
     print(odds_df.head())
+    save_csv(odds_df, "odds")
 
-    # Obtener datos de All Sports API
+    # All Sports API
     sports_df = get_all_sports_data()
     print("All Sports API DataFrame:")
     print(sports_df.head())
+    save_csv(sports_df, "allsports")
 
 if __name__ == "__main__":
     main()
