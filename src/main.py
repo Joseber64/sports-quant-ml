@@ -12,6 +12,10 @@ def get_odds_data():
     url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={api_key}&regions=us&markets=h2h"
     response = requests.get(url)
     data = response.json()
+
+    # Aseguramos que sea lista
+    if isinstance(data, dict):
+        data = [data]
     return pd.DataFrame(data)
 
 def get_all_sports_data():
@@ -19,9 +23,17 @@ def get_all_sports_data():
     url = f"https://allsportsapi.com/api/football/?met=Fixtures&APIkey={api_key}"
     response = requests.get(url)
     data = response.json()
-    return pd.DataFrame(data.get("result", []))
+
+    # Extraemos lista de resultados
+    results = data.get("result", [])
+    if isinstance(results, dict):
+        results = [results]
+    return pd.DataFrame(results)
 
 def save_csv(df, name):
+    if df.empty:
+        print(f"No se recibieron datos para {name}")
+        return
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"data/{name}_{timestamp}.csv"
     df.to_csv(filename, index=False)
