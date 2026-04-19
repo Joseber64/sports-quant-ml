@@ -1,47 +1,64 @@
 import pandas as pd
 import glob
-import pathlib
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
 import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+import pathlib
 
+# Crear carpeta models si no existe
 pathlib.Path("models").mkdir(exist_ok=True)
 
-def load_data():
+def load_csvs():
     files = glob.glob("data/*.csv")
-    dfs = [pd.read_csv(f) for f in files]
-    df = pd.concat(dfs, ignore_index=True)
-    return df
+    dfs = []
+    for f in files:
+        try:
+            df = pd.read_csv(f)
+            dfs.append(df)
+        except Exception as e:
+            print(f"Error leyendo {f}: {e}")
+    return pd.concat(dfs, ignore_index=True)
 
 def preprocess(df):
-    # Quitamos empates
-    df = df[df["FTR"] != "D"]
+    # Etiqueta: 1 si gana local, 0 si no
     df["result"] = df["FTR"].apply(lambda x: 1 if x == "H" else 0)
 
-    # Features más rentables
-    features = ["FTHG", "FTAG", "HS", "AS", "HST", "AST",
-                "HC", "AC", "HF", "AF", "HY", "AY", "HR", "AR"]
+    # Features clásicas
+    features = ["FTHG","FTAG","HS","AS","HST","AST","HC","AC","HF","AF","HY","AY","HR","AR"]
 
-    X = df[[col for col in features if col in df.columns]]
+    # Features avanzadas: xG y xGA si están en los CSV
+    if "xG" in df.columns:
+        features.append("xG")
+    if "xGA" in df.columns:
+        features.append("xGA")
+
+    # Diferencia de xG como feature
+    if "xG" in df.columns and "xGA" in df.columns:
+        df["xG_diff"] = df["xG"] - df["xGA"]
+        features.append("xG_diff")
+
+    X = df[features]
     y = df["result"]
     return X, y
 
-def train_model(X, y):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    model = RandomForestClassifier(n_estimators=300, max_depth=12, random_state=42)
+def train_model():
+    df = load_csvs()
+    print(f"Dataset combinado: {df.shape}")
+
+    X, y = preprocess(df)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    model = LogisticRegression(max_iter=1000)
     model.fit(X_train, y_train)
+
     y_pred = model.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
     print(f"Precisión del modelo: {acc:.2f}")
+
     joblib.dump(model, "models/top5_leagues_model.pkl")
     print("Modelo guardado en models/top5_leagues_model.pkl")
 
-def main():
-    df = load_data()
-    print("Dataset combinado:", df.shape)
-    X, y = preprocess(df)
-    train_model(X, y)
-
 if __name__ == "__main__":
-    main()
+    train_model()
