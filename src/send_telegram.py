@@ -18,7 +18,6 @@ def send_telegram_message(message: str):
     print("Response:", response.text)
 
 if __name__ == "__main__":
-    # Buscar el último archivo de predicciones
     files = glob.glob("data/predictions_*.csv")
     if not files:
         print("No hay predicciones para enviar")
