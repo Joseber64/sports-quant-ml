@@ -11,9 +11,11 @@ def get_odds_data():
     api_key = os.getenv("ODDS_API_KEY")
     url = f"https://api.the-odds-api.com/v4/sports/upcoming/odds/?apiKey={api_key}&regions=us&markets=h2h"
     response = requests.get(url)
-    data = response.json()
-
-    # Aseguramos que sea lista
+    try:
+        data = response.json()
+    except Exception:
+        print("Error al decodificar Odds API:", response.text)
+        return pd.DataFrame()
     if isinstance(data, dict):
         data = [data]
     return pd.DataFrame(data)
@@ -22,9 +24,11 @@ def get_all_sports_data():
     api_key = os.getenv("ALL_SPORTS_API_KEY")
     url = f"https://allsportsapi.com/api/football/?met=Fixtures&APIkey={api_key}"
     response = requests.get(url)
-    data = response.json()
-
-    # Extraemos lista de resultados
+    try:
+        data = response.json()
+    except Exception:
+        print("Error al decodificar AllSports API:", response.text)
+        return pd.DataFrame()
     results = data.get("result", [])
     if isinstance(results, dict):
         results = [results]
