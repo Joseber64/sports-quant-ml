@@ -1,14 +1,60 @@
-# Sports Quant ML
+# 🧠 Sports Quant ML — Automated Football Prediction Pipeline  
+### *Machine Learning + Live Odds API + Poisson + Kelly + Telegram Alerts*
 
-Sistema de Machine Learning Cuantitativo para análisis deportivo usando APIs de probabilidades y estadísticas.
+---
 
-## Objetivo
-- Conectar con APIs deportivas (Odds API, All Sports API).
-- Procesar datos en tiempo real.
-- Entrenar modelos de predicción.
-- Automatizar todo con GitHub Actions.
+## 📌 Resumen  
+Sports Quant ML es un pipeline **profesional y completamente automatizado** para predicción de fútbol.  
+Integra datos en vivo, modelos de Machine Learning, métricas avanzadas y alertas automáticas a Telegram.
 
-## Cómo funciona
-1. GitHub Actions descarga el código.
-2. Instala dependencias.
-3. Ejecuta `src/main.py` para obtener datos y entrenar modelos.
+Incluye:
+
+- Descarga de **cuotas en vivo** desde *The Odds API*  
+- Entrenamiento automático con **xG, xGA, xG_diff**  
+- Predicciones con **probabilidades reales**, **Poisson**, **Kelly Criterion**  
+- Envío automático de picks a **Telegram**  
+- CI/CD completo con **GitHub Actions**  
+- Versionado automático de modelos con timestamp  
+
+---
+
+# 🚀 Características principales
+
+### ✔️ Datos en vivo (Odds API)
+El pipeline descarga automáticamente las cuotas más recientes de partidos de fútbol.
+
+### ✔️ Entrenamiento ML profesional
+- Regresión logística con:
+  - Goles
+  - Tiros
+  - Tiros a puerta
+  - Tarjetas
+  - Corners
+  - **xG**
+  - **xGA**
+  - **xG_diff**
+- Imputación automática de valores faltantes
+- Guardado de modelos con timestamp para evitar conflictos
+
+### ✔️ Predicciones avanzadas
+Cada partido incluye:
+- Probabilidad de victoria local/visitante  
+- Modelo Poisson para goles esperados  
+- Kelly Criterion para gestión de banca  
+- Exportación automática a CSV  
+
+### ✔️ Alertas automáticas a Telegram
+Cada ejecución envía los picks generados directamente a tu cuenta de Telegram.
+
+### ✔️ CI/CD profesional
+GitHub Actions ejecuta automáticamente:
+1. Descarga de datos  
+2. Entrenamiento  
+3. Predicción  
+4. Envío a Telegram  
+5. Commit automático de outputs  
+
+---
+
+# 📂 Estructura del proyecto
+
