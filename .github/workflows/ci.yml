@@ -20,18 +20,17 @@ jobs:
         python-version: '3.10'
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: |
+        pip install pandas scikit-learn joblib
 
-    - name: Run script
-      env:
-        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        ALL_SPORTS_API_KEY: ${{ secrets.ALL_SPORTS_API_KEY }}
-      run: python src/main.py
+    - name: Run training script
+      run: python src/train.py
 
-    - name: Commit CSV outputs
+    - name: Commit CSV and models
       run: |
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
-        git add data/*.csv
-        git commit -m "Add latest API data"
-        git push
+        git add models/*.pkl
+        git commit -m "Entrenamiento automático con CSV y modelo guardado" || echo "No changes to commit"
+        git pull --rebase origin main || true
+        git push origin main
