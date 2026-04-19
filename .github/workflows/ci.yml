@@ -23,4 +23,7 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Run script
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        ALL_SPORTS_API_KEY: ${{ secrets.ALL_SPORTS_API_KEY }}
       run: python src/main.py
