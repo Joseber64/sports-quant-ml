@@ -1,4 +1,7 @@
-import os, requests, glob, pandas as pd
+import os
+import requests
+import glob
+import pandas as pd
 
 def send_telegram_message(message: str):
     token = os.getenv("TELEGRAM_BOT_TOKEN")
