@@ -6,7 +6,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 import joblib
 
-# Crear carpeta models si no existe
 pathlib.Path("models").mkdir(exist_ok=True)
 
 def load_data():
@@ -16,15 +15,21 @@ def load_data():
     return df
 
 def preprocess(df):
+    # Quitamos empates
     df = df[df["FTR"] != "D"]
     df["result"] = df["FTR"].apply(lambda x: 1 if x == "H" else 0)
-    X = df[["FTHG", "FTAG", "HS", "AS", "HST", "AST"]]
+
+    # Features más rentables
+    features = ["FTHG", "FTAG", "HS", "AS", "HST", "AST",
+                "HC", "AC", "HF", "AF", "HY", "AY", "HR", "AR"]
+
+    X = df[[col for col in features if col in df.columns]]
     y = df["result"]
     return X, y
 
 def train_model(X, y):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model = RandomForestClassifier(n_estimators=300, max_depth=12, random_state=42)
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
