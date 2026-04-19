@@ -60,7 +60,12 @@ def extract_h2h_odds(row):
                         away = next((o["price"] for o in outcomes if o["name"].lower() in ("away","visitante","away")), None)
                         draw = next((o["price"] for o in outcomes if o["name"].lower() in ("draw","empate")), None)
                         return home, draw, away
-        except Exception:
+        try:
+    do_something()
+except ValueError:
+    handle_value_error()
+except Exception as e:
+    log_error(e)
             pass
     # Si hay columnas directas
     for colset in [("home_odds","draw_odds","away_odds"), ("h2h_home","h2h_draw","h2h_away")]:
