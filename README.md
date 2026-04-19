@@ -1,3 +1,6 @@
+![Sports Quant ML Banner](https://copilot.microsoft.com/th/id/BCO.7cfdb8ef-fdc4-47cc-b87c-400904d4209b.png)
+
+
 # 🧠 Sports Quant ML — Automated Football Prediction Pipeline  
 ### *Machine Learning + Live Odds API + Poisson + Kelly + Telegram Alerts*
 
