@@ -44,8 +44,12 @@ def implied_prob_from_odds(odds):
     return 1.0 / odds
 
 def extract_h2h_odds(row):
-    home_team_name = str(row.get("HomeTeam", "")).lower()
-    away_team_name = str(row.get("AwayTeam", "")).lower()
+    # Busca ambos formatos de nombres de columnas
+    h_team = row.get("HomeTeam", row.get("home_team", ""))
+    a_team = row.get("AwayTeam", row.get("away_team", ""))
+    
+    home_team_name = str(h_team).lower()
+    away_team_name = str(a_team).lower()
 
     if "bookmakers" in row and pd.notna(row["bookmakers"]):
         try:
@@ -68,8 +72,6 @@ def extract_h2h_odds(row):
                             elif name == away_team_name or away_team_name in name or name in away_team_name:
                                 away = price
                         
-                        # Fallback extremo: si The Odds API mandó nombres muy distintos pero hay 3 cuotas, 
-                        # sabemos que el formato estándar es (Local, Visita) excluyendo el "Draw".
                         if home is None and away is None and len(outcomes) >= 2:
                             draw_price = next((o["price"] for o in outcomes if str(o.get("name","")).lower() in ("draw","empate")), None)
                             remaining = [o["price"] for o in outcomes if str(o.get("name","")).lower() not in ("draw","empate")]
@@ -98,7 +100,9 @@ def predict_new_matches():
     if odds_df is None:
         return
 
-    # Features esperadas por el modelo
+    # Esta línea nos dirá en el log de GitHub qué columnas tiene realmente tu CSV
+    print(f"Columnas detectadas en el CSV: {list(odds_df.columns)}")
+
     features = ["FTHG","FTAG","HS","AS","HST","AST","HC","AC","HF","AF","HY","AY","HR","AR"]
     if "xG" in odds_df.columns:
         features.append("xG")
@@ -119,7 +123,12 @@ def predict_new_matches():
         X = pd.DataFrame(imputer.fit_transform(X), columns=available)
         preds = model.predict(X)
         probs = model.predict_proba(X)
-        teams = list(zip(odds_df.get("HomeTeam", ["?"]*len(odds_df)), odds_df.get("AwayTeam", ["?"]*len(odds_df))))
+        
+        # Ajuste para usar ambos nombres de columnas aquí también
+        h_teams = odds_df.get("HomeTeam", odds_df.get("home_team", ["?"]*len(odds_df)))
+        a_teams = odds_df.get("AwayTeam", odds_df.get("away_team", ["?"]*len(odds_df)))
+        teams = list(zip(h_teams, a_teams))
+        
         for (home, away), p, prob in zip(teams, preds, probs):
             prob_local = float(prob[1])
             poisson_example = poisson_prob(lmbda=prob_local*2.0, k=2)
@@ -136,8 +145,10 @@ def predict_new_matches():
     else:
         print("No hay features disponibles o no hay modelo; intentando fallback con cuotas h2h...")
         for _, row in odds_df.iterrows():
-            home = row.get("HomeTeam", "?")
-            away = row.get("AwayTeam", "?")
+            # Busca ambos nombres de columnas
+            home = row.get("HomeTeam", row.get("home_team", "?"))
+            away = row.get("AwayTeam", row.get("away_team", "?"))
+            
             odd_home, odd_draw, odd_away = extract_h2h_odds(row)
             
             if odd_home is None and odd_away is None:
