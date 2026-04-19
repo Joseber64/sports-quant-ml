@@ -4,7 +4,7 @@ import requests
 def main():
     api_key = os.getenv("ODDS_API_KEY")
     url = f"https://api.the-odds-api.com/v4/sports/?apiKey={api_key}"
-    response = requests.get(url)
+    response = requests.get('https://gmail.com', timeout=5)
 
     try:
         data = response.json()
