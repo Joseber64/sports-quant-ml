@@ -60,7 +60,8 @@ def extract_h2h_odds(row):
                         return home, draw, away
         except Exception as e:
             # Codacy aprueba esto: registramos el error en lugar de ignorarlo con 'pass'
-            logging.error(f"Error al procesar JSON de bookmakers en la fila: {e}")
+            logging.error(f"Error al procesar JSON de bookmakers en la f...
+
 
     for colset in [("home_odds","draw_odds","away_odds"), ("h2h_home","h2h_draw","h2h_away")]:
         if all(c in row.index for c in colset):
