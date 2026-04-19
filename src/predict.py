@@ -4,23 +4,19 @@ import joblib
 import glob
 import pathlib
 import math
-import json
 import logging
 import ast
 from datetime import datetime
 from sklearn.impute import SimpleImputer
 
-# Configuración básica de logs
 logging.basicConfig(level=logging.INFO)
 pathlib.Path("data").mkdir(exist_ok=True)
 
-def poisson_prob(lmbda, k):
-    return (math.exp(-lmbda) * (lmbda**k)) / math.factorial(k)
-
 def kelly_fraction(prob, odds):
+    if odds is None or odds <= 1.0: return 0.0
     b = odds - 1
     q = 1 - prob
-    return max(0.0, (b * prob - q) / b) if b > 0 else 0.0
+    return max(0.0, (b * prob - q) / b)
 
 def load_model():
     files = glob.glob("models/top5_leagues_model_*.pkl")
@@ -37,48 +33,45 @@ def load_latest_odds():
         return None, None
     latest = max(files)
     print(f"Usando archivo: {latest}")
-    df = pd.read_csv(latest)
-    return df, latest
+    return pd.read_csv(latest), latest
 
 def implied_prob_from_odds(odds):
-    if odds is None or odds <= 0:
-        return None
-    return 1.0 / odds
+    return 1.0 / odds if odds and odds > 0 else None
 
-def extract_h2h_odds(row):
-    # Detecta nombres de columnas dinámicamente
-    h_team = row.get("HomeTeam", row.get("home_team", ""))
-    a_team = row.get("AwayTeam", row.get("away_team", ""))
+def extract_match_odds(row):
+    h_team = str(row.get("HomeTeam", row.get("home_team", ""))).lower()
+    a_team = str(row.get("AwayTeam", row.get("away_team", ""))).lower()
     
-    home_team_name = str(h_team).lower()
-    away_team_name = str(a_team).lower()
+    home, draw, away = None, None, None
+    over_25, under_25 = None, None
 
     if "bookmakers" in row and pd.notna(row["bookmakers"]):
         try:
-            # ast.literal_eval soluciona el error de comillas simples/dobles
             bk = ast.literal_eval(str(row["bookmakers"]))
             if isinstance(bk, list) and len(bk) > 0:
                 markets = bk[0].get("markets", [])
                 for m in markets:
-                    if m.get("key") in ("h2h","h2h_lay"):
-                        outcomes = m.get("outcomes", [])
-                        home, draw, away = None, None, None
-                        
-                        for o in outcomes:
+                    # Mercado 1X2
+                    if m.get("key") in ("h2h", "h2h_lay"):
+                        for o in m.get("outcomes", []):
                             name = str(o.get("name", "")).lower()
                             price = o.get("price")
-                            if name in ("draw", "empate", "x"):
-                                draw = price
-                            elif name == home_team_name or home_team_name in name:
-                                home = price
-                            elif name == away_team_name or away_team_name in name:
-                                away = price
-                        
-                        return home, draw, away
+                            if name in ("draw", "empate", "x"): draw = price
+                            elif name == h_team or h_team in name: home = price
+                            elif name == a_team or a_team in name: away = price
+                    
+                    # Mercado Totales (Goles)
+                    elif m.get("key") == "totals":
+                        for o in m.get("outcomes", []):
+                            if o.get("point") == 2.5:
+                                name = str(o.get("name", "")).lower()
+                                if name == "over": over_25 = o.get("price")
+                                elif name == "under": under_25 = o.get("price")
+                                
         except Exception as e:
             logging.error(f"Error al procesar bookmakers: {e}")
 
-    return None, None, None
+    return home, draw, away, over_25, under_25
 
 def predict_new_matches():
     model = None
@@ -87,13 +80,11 @@ def predict_new_matches():
     except Exception as e:
         print(f"Aviso: {e}. Se intentará fallback por cuotas.")
 
-    odds_df, odds_file = load_latest_odds()
+    odds_df, _ = load_latest_odds()
     if odds_df is None: return
 
-    # Intentar detectar features para el modelo
     features = ["FTHG","FTAG","HS","AS","HST","AST","HC","AC","HF","AF","HY","AY","HR","AR"]
     available = [c for c in features if c in odds_df.columns]
-    
     results = []
 
     if model is not None and len(available) > 0:
@@ -107,31 +98,46 @@ def predict_new_matches():
         a_teams = odds_df.get("AwayTeam", odds_df.get("away_team", ["?"]*len(odds_df)))
         
         for (home, away), p, prob in zip(zip(h_teams, a_teams), preds, probs):
-            prob_local = float(prob[1])
+            prob_main = float(prob[1]) if p == 1 else float(prob[0])
             results.append({
                 "HomeTeam": home, "AwayTeam": away,
                 "Prediction": "Local gana" if p == 1 else "Visita gana",
-                "Prob_Local": round(prob_local, 3),
-                "Kelly_Fraction": round(kelly_fraction(prob_local, 2.0), 3)
+                "Prob_Main": round(prob_main, 3),
+                "Kelly_Fraction": round(kelly_fraction(prob_main, 2.0), 3),
+                "Over_2.5": None,
+                "Under_2.5": None
             })
     else:
-        print("Iniciando fallback por cuotas H2H...")
+        print("Iniciando fallback por cuotas H2H y Totales...")
         for _, row in odds_df.iterrows():
             home = row.get("HomeTeam", row.get("home_team", "?"))
             away = row.get("AwayTeam", row.get("away_team", "?"))
-            oh, od, oa = extract_h2h_odds(row)
+            oh, od, oa, o25, u25 = extract_match_odds(row)
             
-            if oh and oa:
+            if oh and od and oa:
                 p_h = implied_prob_from_odds(oh)
+                p_d = implied_prob_from_odds(od)
                 p_a = implied_prob_from_odds(oa)
-                # Normalización básica
-                s = p_h + p_a + (1.0/od if od else 0)
-                p_h /= s
+                
+                # Normalización para eliminar el margen de la casa
+                s = p_h + p_d + p_a
+                p_h, p_d, p_a = p_h/s, p_d/s, p_a/s
+                
+                # Lógica para elegir Local, Empate o Visita
+                if p_h >= p_a and p_h >= p_d:
+                    pick, prob_main, odd_main = "Local gana", p_h, oh
+                elif p_a >= p_h and p_a >= p_d:
+                    pick, prob_main, odd_main = "Visita gana", p_a, oa
+                else:
+                    pick, prob_main, odd_main = "Empate", p_d, od
+
                 results.append({
                     "HomeTeam": home, "AwayTeam": away,
-                    "Prediction": "Local gana" if p_h >= (p_a/s) else "Visita gana",
-                    "Prob_Local": round(p_h, 3),
-                    "Kelly_Fraction": round(kelly_fraction(p_h, oh), 3)
+                    "Prediction": pick,
+                    "Prob_Main": round(prob_main, 3),
+                    "Kelly_Fraction": round(kelly_fraction(prob_main, odd_main), 3),
+                    "Over_2.5": o25,
+                    "Under_2.5": u25
                 })
 
     if results:
