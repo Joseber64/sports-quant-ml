@@ -1,9 +1,7 @@
-name: CI Pipeline
+name: Sports Quant ML Pipeline
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
 
 jobs:
@@ -21,16 +19,22 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install pandas scikit-learn joblib
+        pip install pandas scikit-learn joblib requests
 
-    - name: Run training script
+    - name: Run data pipeline
+      run: python src/main.py
+
+    - name: Train model
       run: python src/train.py
 
-    - name: Commit CSV and models
+    - name: Predict with new data
+      run: python src/predict.py || true
+
+    - name: Commit outputs
       run: |
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
-        git add models/*.pkl
-        git commit -m "Entrenamiento automático con CSV y modelo guardado" || echo "No changes to commit"
+        git add data/*.csv models/*.pkl
+        git commit -m "Update data, train model, and predictions" || echo "No changes to commit"
         git pull --rebase origin main || true
         git push origin main
