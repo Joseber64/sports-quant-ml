@@ -40,11 +40,10 @@ jobs:
       env:
         ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
+    - name: Send Telegram Picks
+      run: python src/send_telegram.py
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
     - name: Commit outputs
-      run: |
-        git config --global user.name "github-actions"
-        git config --global user.email "github-actions@github.com"
-        git add data/*.csv models/*.pkl
-        git commit -m "Update data, train model, and predictions" || echo "No changes to commit"
-        git pull --rebase origin main || true
-        git push origin main
