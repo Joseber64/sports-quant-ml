@@ -60,13 +60,15 @@ def extract_h2h_odds(row):
                         away = next((o["price"] for o in outcomes if o["name"].lower() in ("away","visitante","away")), None)
                         draw = next((o["price"] for o in outcomes if o["name"].lower() in ("draw","empate")), None)
                         return home, draw, away
-        try:
+        import logging
+
+try:
+    # Tu código original
     do_something()
-except ValueError:
-    handle_value_error()
-except Exception as e:
-    log_error(e)
-    # Si hay columnas directas
+except ValueError as e:
+    # Registra el error exacto en lugar de ignorarlo
+    logging.error(f"Error de valor detectado al procesar los datos: {e}")
+
     for colset in [("home_odds","draw_odds","away_odds"), ("h2h_home","h2h_draw","h2h_away")]:
         if all(c in row.index for c in colset):
             return row[colset[0]], row[colset[1]], row[colset[2]]
