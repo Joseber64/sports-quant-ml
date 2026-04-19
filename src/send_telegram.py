@@ -15,7 +15,6 @@ def send_telegram_message(message: str):
     data = {"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
     response = requests.post(url, data=data, timeout=15)
     print("Status:", response.status_code)
-    print("Response:", response.text)
 
 if __name__ == "__main__":
     files = glob.glob("data/predictions_*.csv")
@@ -27,18 +26,28 @@ if __name__ == "__main__":
         if df.empty:
             print("El archivo de predicciones está vacío:", latest)
         else:
-            # Construir mensaje con formato limpio (Markdown)
-            picks_text = f"*📊 Picks generados — {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n\n"
+            picks_text = f"*📊 Picks Actualizados — {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n\n"
             for _, row in df.iterrows():
                 home = row.get("HomeTeam", "?")
                 away = row.get("AwayTeam", "?")
                 pred = row.get("Prediction", "?")
-                prob_local = row.get("Prob_Local", None)
+                prob_main = row.get("Prob_Main", None)
                 kelly = row.get("Kelly_Fraction", None)
-                picks_text += f"*{home}* vs *{away}* — {pred}\n"
-                if prob_local is not None:
-                    picks_text += f"Prob Local: `{prob_local:.2f}`"
-                if kelly is not None:
-                    picks_text += f"  •  Kelly: `{kelly:.2f}`"
-                picks_text += "\n\n"
+                over_25 = row.get("Over_2.5", None)
+                under_25 = row.get("Under_2.5", None)
+                
+                picks_text += f"⚽ *{home}* vs *{away}*\n"
+                picks_text += f"🎯 Pick: *{pred}*\n"
+                
+                if pd.notna(prob_main):
+                    picks_text += f"Probabilidad: `{prob_main:.2f}`"
+                if pd.notna(kelly) and kelly > 0:
+                    picks_text += f" | Kelly: `{kelly:.2f}`"
+                picks_text += "\n"
+                
+                if pd.notna(over_25) and pd.notna(under_25):
+                    picks_text += f"🥅 Goles 2.5 -> Más: `{over_25}` | Menos: `{under_25}`\n"
+                    
+                picks_text += "\n"
+                
             send_telegram_message(picks_text)
