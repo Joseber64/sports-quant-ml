@@ -1,4 +1,6 @@
-import os, requests, pandas as pd
+import os
+import requests
+import pandas as pd
 from datetime import datetime
 import pathlib
 
@@ -6,7 +8,7 @@ pathlib.Path("data").mkdir(exist_ok=True)
 
 def fetch_odds():
     api_key = os.getenv("ODDS_API_KEY")
-    sport = "soccer_epl"
+    sport = "soccer_epl"  # ejemplo: Premier League
     region = "uk"
     url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds/?apiKey={api_key}&regions={region}&markets=h2h"
 
