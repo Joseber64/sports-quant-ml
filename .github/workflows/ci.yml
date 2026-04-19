@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  pipeline:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,13 +21,13 @@ jobs:
       run: |
         pip install pandas scikit-learn joblib requests
 
-    - name: Run data pipeline
+    - name: Run data pipeline (Odds API)
       run: python src/main.py
 
-    - name: Train model
+    - name: Train model with historical CSVs
       run: python src/train.py
 
-    - name: Predict with new data
+    - name: Predict with new Odds data
       run: python src/predict.py || true
 
     - name: Commit outputs
