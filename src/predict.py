@@ -66,7 +66,6 @@ except ValueError:
     handle_value_error()
 except Exception as e:
     log_error(e)
-            pass
     # Si hay columnas directas
     for colset in [("home_odds","draw_odds","away_odds"), ("h2h_home","h2h_draw","h2h_away")]:
         if all(c in row.index for c in colset):
