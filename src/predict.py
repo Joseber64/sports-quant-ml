@@ -42,6 +42,14 @@ def predict_new_matches():
 
     # Features que entrenaste
     features = ["FTHG","FTAG","HS","AS","HST","AST","HC","AC","HF","AF","HY","AY","HR","AR"]
+    if "xG" in odds_df.columns:
+        features.append("xG")
+    if "xGA" in odds_df.columns:
+        features.append("xGA")
+    if "xG" in odds_df.columns and "xGA" in odds_df.columns:
+        odds_df["xG_diff"] = odds_df["xG"] - odds_df["xGA"]
+        features.append("xG_diff")
+
     available = [col for col in features if col in odds_df.columns]
     X = odds_df[available]
     teams = list(zip(odds_df.get("HomeTeam", ["?"]*len(odds_df)), odds_df.get("AwayTeam", ["?"]*len(odds_df))))
