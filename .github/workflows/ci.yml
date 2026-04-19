@@ -3,6 +3,7 @@ name: Sports Quant ML Pipeline
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:   # también lo puedes lanzar manualmente
 
 jobs:
   pipeline:
@@ -24,10 +25,14 @@ jobs:
     # Paso 1: Testear la API con tu key
     - name: Test Odds API key
       run: python src/test_api.py
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
     # Paso 2: Descargar datos en vivo
     - name: Run data pipeline (Odds API)
       run: python src/main.py
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
     # Paso 3: Entrenar modelo con CSV históricos
     - name: Train model with historical CSVs
@@ -36,6 +41,8 @@ jobs:
     # Paso 4: Predecir con datos nuevos
     - name: Predict with new Odds data
       run: python src/predict.py || true
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
     # Paso 5: Guardar outputs en el repo
     - name: Commit outputs
