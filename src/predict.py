@@ -6,6 +6,7 @@ import pathlib
 import math
 import json
 import logging
+import ast
 from datetime import datetime
 from sklearn.impute import SimpleImputer
 
@@ -44,25 +45,22 @@ def implied_prob_from_odds(odds):
     return 1.0 / odds
 
 def extract_h2h_odds(row):
-    # Intenta extraer cuotas h2h desde columnas comunes (ajusta según tu CSV)
+    # Intenta extraer cuotas h2h desde columnas comunes
     if "bookmakers" in row and pd.notna(row["bookmakers"]):
         try:
-            bk = json.loads(row["bookmakers"])
+            # Reemplazamos json.loads por ast.literal_eval para ignorar el problema de las comillas simples
+            bk = ast.literal_eval(str(row["bookmakers"]))
             if isinstance(bk, list) and len(bk) > 0:
                 markets = bk[0].get("markets", [])
                 for m in markets:
                     if m.get("key") in ("h2h","h2h_lay"):
                         outcomes = m.get("outcomes", [])
-                        # outcomes: [{'name':'Home','price':1.9}, ...]
                         home = next((o["price"] for o in outcomes if o["name"].lower() in ("home","local")), None)
                         away = next((o["price"] for o in outcomes if o["name"].lower() in ("away","visitante","away")), None)
                         draw = next((o["price"] for o in outcomes if o["name"].lower() in ("draw","empate")), None)
                         return home, draw, away
         except Exception as e:
-            # Codacy aprueba esto: registramos el error en lugar de ignorarlo con 'pass'
-                logging.error(f"Error al procesar JSON de bookmakers: {e}")
-
-
+            logging.error(f"Error al procesar bookmakers: {e}")
 
     for colset in [("home_odds","draw_odds","away_odds"), ("h2h_home","h2h_draw","h2h_away")]:
         if all(c in row.index for c in colset):
