@@ -1,6 +1,4 @@
-import os
-import requests
-import pandas as pd
+import os, requests, pandas as pd
 from datetime import datetime
 import pathlib
 
@@ -8,7 +6,7 @@ pathlib.Path("data").mkdir(exist_ok=True)
 
 def fetch_odds():
     api_key = os.getenv("ODDS_API_KEY")
-    sport = "soccer_epl"  # ejemplo: Premier League
+    sport = "soccer_epl"
     region = "uk"
     url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds/?apiKey={api_key}&regions={region}&markets=h2h"
 
@@ -17,10 +15,8 @@ def fetch_odds():
         print("Error:", response.text)
         return None
 
-    data = response.json()
-    df = pd.json_normalize(data)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"data/odds_{timestamp}.csv"
+    df = pd.json_normalize(response.json())
+    filename = f"data/odds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     df.to_csv(filename, index=False)
     print(f"Datos guardados en {filename}")
     return filename
