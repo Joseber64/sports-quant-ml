@@ -6,7 +6,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 import pathlib
 
-# Crear carpeta models si no existe
 pathlib.Path("models").mkdir(exist_ok=True)
 
 def load_csvs():
@@ -21,19 +20,13 @@ def load_csvs():
     return pd.concat(dfs, ignore_index=True)
 
 def preprocess(df):
-    # Etiqueta: 1 si gana local, 0 si no
     df["result"] = df["FTR"].apply(lambda x: 1 if x == "H" else 0)
-
-    # Features clásicas
     features = ["FTHG","FTAG","HS","AS","HST","AST","HC","AC","HF","AF","HY","AY","HR","AR"]
 
-    # Features avanzadas: xG y xGA si están en los CSV
     if "xG" in df.columns:
         features.append("xG")
     if "xGA" in df.columns:
         features.append("xGA")
-
-    # Diferencia de xG como feature
     if "xG" in df.columns and "xGA" in df.columns:
         df["xG_diff"] = df["xG"] - df["xGA"]
         features.append("xG_diff")
@@ -45,11 +38,9 @@ def preprocess(df):
 def train_model():
     df = load_csvs()
     print(f"Dataset combinado: {df.shape}")
-
     X, y = preprocess(df)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
     model = LogisticRegression(max_iter=1000)
     model.fit(X_train, y_train)
 
