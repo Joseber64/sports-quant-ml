@@ -28,16 +28,13 @@ def get_all_sports_data():
         data = response.json()
     except Exception:
         print("Error al decodificar AllSports API:", response.text)
-        return pd.DataFrame()
+        return pd.DataFrame(columns=["error"])
     results = data.get("result", [])
     if isinstance(results, dict):
         results = [results]
     return pd.DataFrame(results)
 
 def save_csv(df, name):
-    if df.empty:
-        print(f"No se recibieron datos para {name}")
-        return
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"data/{name}_{timestamp}.csv"
     df.to_csv(filename, index=False)
