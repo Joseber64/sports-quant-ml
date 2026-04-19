@@ -39,25 +39,45 @@ def load_latest_odds():
     return df, latest
 
 def implied_prob_from_odds(odds):
-    # odds en formato decimal
     if odds is None or odds <= 0:
         return None
     return 1.0 / odds
 
 def extract_h2h_odds(row):
-    # Intenta extraer cuotas h2h desde columnas comunes
+    home_team_name = str(row.get("HomeTeam", "")).lower()
+    away_team_name = str(row.get("AwayTeam", "")).lower()
+
     if "bookmakers" in row and pd.notna(row["bookmakers"]):
         try:
-            # Reemplazamos json.loads por ast.literal_eval para ignorar el problema de las comillas simples
             bk = ast.literal_eval(str(row["bookmakers"]))
             if isinstance(bk, list) and len(bk) > 0:
                 markets = bk[0].get("markets", [])
                 for m in markets:
                     if m.get("key") in ("h2h","h2h_lay"):
                         outcomes = m.get("outcomes", [])
-                        home = next((o["price"] for o in outcomes if o["name"].lower() in ("home","local")), None)
-                        away = next((o["price"] for o in outcomes if o["name"].lower() in ("away","visitante","away")), None)
-                        draw = next((o["price"] for o in outcomes if o["name"].lower() in ("draw","empate")), None)
+                        home, draw, away = None, None, None
+                        
+                        for o in outcomes:
+                            name = str(o.get("name", "")).lower()
+                            price = o.get("price")
+                            
+                            if name in ("draw", "empate", "x"):
+                                draw = price
+                            elif name == home_team_name or home_team_name in name or name in home_team_name:
+                                home = price
+                            elif name == away_team_name or away_team_name in name or name in away_team_name:
+                                away = price
+                        
+                        # Fallback extremo: si The Odds API mandó nombres muy distintos pero hay 3 cuotas, 
+                        # sabemos que el formato estándar es (Local, Visita) excluyendo el "Draw".
+                        if home is None and away is None and len(outcomes) >= 2:
+                            draw_price = next((o["price"] for o in outcomes if str(o.get("name","")).lower() in ("draw","empate")), None)
+                            remaining = [o["price"] for o in outcomes if str(o.get("name","")).lower() not in ("draw","empate")]
+                            
+                            if len(remaining) >= 2:
+                                home, away = remaining[0], remaining[1]
+                                draw = draw_price if draw_price else draw
+                                
                         return home, draw, away
         except Exception as e:
             logging.error(f"Error al procesar bookmakers: {e}")
@@ -108,29 +128,30 @@ def predict_new_matches():
                 "HomeTeam": home,
                 "AwayTeam": away,
                 "Prediction": "Local gana" if p == 1 else "Visita gana",
-                "Prob_Local": prob_local,
-                "Prob_Visit": float(prob[0]),
-                "Poisson_2g_Local": poisson_example,
-                "Kelly_Fraction": kelly
+                "Prob_Local": round(prob_local, 3),
+                "Prob_Visit": round(float(prob[0]), 3),
+                "Poisson_2g_Local": round(poisson_example, 3),
+                "Kelly_Fraction": round(kelly, 3)
             })
     else:
-        # Fallback: generar picks desde cuotas h2h si existen
         print("No hay features disponibles o no hay modelo; intentando fallback con cuotas h2h...")
         for _, row in odds_df.iterrows():
             home = row.get("HomeTeam", "?")
             away = row.get("AwayTeam", "?")
             odd_home, odd_draw, odd_away = extract_h2h_odds(row)
+            
             if odd_home is None and odd_away is None:
                 continue
+                
             p_home = implied_prob_from_odds(odd_home) if odd_home else None
             p_away = implied_prob_from_odds(odd_away) if odd_away else None
-            # Normalizar si ambos existen
+            
             if p_home and p_away:
                 s = p_home + p_away + (1.0 / odd_draw if odd_draw else 0)
                 if s > 0:
                     p_home /= s
                     p_away /= s
-            # Elegir pick
+                    
             if p_home and p_away:
                 pick = "Local gana" if p_home >= p_away else "Visita gana"
                 prob_local = p_home
@@ -140,10 +161,10 @@ def predict_new_matches():
                     "HomeTeam": home,
                     "AwayTeam": away,
                     "Prediction": pick,
-                    "Prob_Local": prob_local,
-                    "Prob_Visit": p_away,
-                    "Poisson_2g_Local": poisson_example,
-                    "Kelly_Fraction": kelly
+                    "Prob_Local": round(prob_local, 3),
+                    "Prob_Visit": round(p_away, 3),
+                    "Poisson_2g_Local": round(poisson_example, 3),
+                    "Kelly_Fraction": round(kelly, 3)
                 })
 
     if not results:
