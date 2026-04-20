@@ -1,0 +1,64 @@
+name: Sports Quant ML Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Test Odds API key
+      run: python src/test_api.py
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      continue-on-error: true
+
+    - name: Run data pipeline (Odds API)
+      run: python src/main.py
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      continue-on-error: true
+
+    - name: Train model with historical CSVs
+      run: python src/train.py
+      continue-on-error: false
+
+    - name: Predict with new Odds data
+      run: python src/predict.py
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      continue-on-error: true
+
+    - name: Send Telegram Picks
+      run: python src/send_telegram.py
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      continue-on-error: true
+
+    - name: Commit outputs
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add -A
+        git diff --cached --quiet || git commit -m "Update data and predictions - $(date +'%Y%m%d_%H%M%S')"
+        git pull origin main --rebase --autostash || true
+        git push origin main
+      continue-on-error: true
