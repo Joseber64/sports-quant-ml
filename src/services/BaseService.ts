@@ -1,4 +1,5 @@
 import { IRepository } from '../interfaces/IRepository';
+import { NotFoundError } from '../errors/AppError';
 
 export abstract class BaseService<T> {
   constructor(protected readonly repository: IRepository<T>) {}
@@ -6,7 +7,7 @@ export abstract class BaseService<T> {
   async getById(id: string): Promise<T> {
     const entity = await this.repository.findById(id);
     if (!entity) {
-      throw new Error('Resource not found');
+      throw new NotFoundError();
     }
     return entity;
   }
