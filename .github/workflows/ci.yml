@@ -1,0 +1,93 @@
+name: Sports Quant ML Scheduled Pipeline
+
+on:
+  schedule:
+    # 08:00 CST -> 14:00 UTC
+    - cron: '0 14 * * *'
+    # 12:00 CST -> 18:00 UTC
+    - cron: '0 18 * * *'
+    # 16:00 CST -> 22:00 UTC
+    - cron: '0 22 * * *'
+    # 23:00 CST -> 05:00 UTC (close day)
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  run_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (no credentials persisted)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas scikit-learn joblib requests
+
+      - name: Run scheduled window
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python src/run_window.py
+
+      - name: Prepare commit and branch (only allowed paths)
+        id: prepare
+        run: |
+          set -e
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          BRANCH="ci-outputs/$(date +'%Y%m%d_%H%M%S')-${GITHUB_RUN_ID}"
+          git checkout -b "$BRANCH"
+          git add picks_diarios/*.json archivo_historico/*.json archivo_historico/history_master.csv || true
+          if git diff --cached --quiet; then
+            echo "no_changes=true" >> $GITHUB_OUTPUT
+          else
+            git commit -m "ci: update picks and history [automated]" || true
+            echo "no_changes=false" >> $GITHUB_OUTPUT
+            echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push branch using GH_PAT
+        if: steps.prepare.outputs.no_changes == 'false'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          BRANCH="${{ steps.prepare.outputs.branch }}"
+          if [ -z "$BRANCH" ]; then
+            echo "Branch name not set, aborting."
+            exit 1
+          fi
+          REMOTE="https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git"
+          git remote set-url origin "$REMOTE"
+          git push origin "$BRANCH" --force
+
+      - name: Create Pull Request (from pushed branch)
+        if: steps.prepare.outputs.no_changes == 'false'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GH_PAT }}
+          commit-message: "ci: update picks and history [automated]"
+          branch: ${{ steps.prepare.outputs.branch }}
+          title: "ci: update picks and history [automated]"
+          body: "Automated update of picks_diarios and archivo_historico by CI pipeline."
+          base: main
+          labels: "ci-outputs"
+
+      - name: Cleanup (always)
+        if: always()
+        run: |
+          git remote set-url origin "https://github.com/${{ github.repository }}.git" || true
