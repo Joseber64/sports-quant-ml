@@ -15,4 +15,23 @@ export abstract class BaseService<T> {
   async getAll(): Promise<T[]> {
     return this.repository.findAll();
   }
+
+  async create(data: T): Promise<T> {
+    return this.repository.create(data);
+  }
+
+  async update(id: string, data: Partial<T>): Promise<T> {
+    const updated = await this.repository.update(id, data);
+    if (!updated) {
+      throw new NotFoundError();
+    }
+    return updated;
+  }
+
+  async delete(id: string): Promise<void> {
+    const deleted = await this.repository.delete(id);
+    if (!deleted) {
+      throw new NotFoundError();
+    }
+  }
 }
