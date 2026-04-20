@@ -15,3 +15,9 @@ export class NotFoundError extends AppError {
     super(`${resource} not found`, 404);
   }
 }
+
+export class ValidationError extends AppError {
+  constructor(message: string = 'Invalid input data') {
+    super(message, 400);
+  }
+}
