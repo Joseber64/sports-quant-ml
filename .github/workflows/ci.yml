@@ -5,14 +5,19 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   pipeline:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
+    - name: Checkout repo (no credentials persisted)
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
+        persist-credentials: false
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -20,39 +25,87 @@ jobs:
         python-version: '3.10'
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas scikit-learn joblib requests
+
+    - name: Test Odds API key
+      run: python src/test_api.py
+      env:
+        ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
 
     - name: Run data pipeline (Odds API)
       run: python src/main.py
       env:
         ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-      continue-on-error: true
 
-    - name: Train model
+    - name: Train model with historical CSVs
       run: python src/train.py
-      continue-on-error: true
 
-    - name: Predict
-      run: python src/predict.py
+    - name: Predict with new Odds data
+      run: python src/predict.py || true
       env:
         ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-      continue-on-error: true
 
     - name: Send Telegram Picks
       run: python src/send_telegram.py
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      continue-on-error: true
 
-    - name: Commit outputs
+    - name: Prepare commit (only allowed paths)
+      id: prepare
       run: |
-        git config --global user.name "github-actions"
-        git config --global user.email "github-actions@github.com"
-        git add -A
-        # FORZAMOS el guardado de los CSV aunque estén en el .gitignore
-        git add -f data/predictions_*.csv || true
-        git diff --cached --quiet || git commit -m "Update predictions - $(date +'%Y%m%d_%H%M%S')"
-        git pull origin main --rebase --autostash || true
-        git push origin main
-      continue-on-error: true
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+
+        # Añadir solo los archivos/carpetas permitidos
+        git add data/*.csv models/*.pkl || true
+
+        # Si no hay cambios, marcar y salir
+        if git diff --cached --quiet; then
+          echo "no_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "no_changes=false" >> $GITHUB_OUTPUT
+          # Commit local
+          git commit -m "ci: update data and models [automated]" || true
+        fi
+
+    - name: Push changes and open PR (uses PAT)
+      if: steps.prepare.outputs.no_changes == 'false'
+      env:
+        GIT_PAT: ${{ secrets.GIT_PAT }}
+      run: |
+        set -e
+
+        # Crear nombre de rama único
+        BRANCH="ci-outputs/$(date +'%Y%m%d_%H%M%S')"
+
+        # Configurar remote con PAT (no se imprime en logs)
+        REMOTE="https://x-access-token:${GIT_PAT}@github.com/${{ github.repository }}.git"
+        git remote set-url origin "$REMOTE"
+
+        # Crear y push de la rama
+        git checkout -b "$BRANCH"
+        git push origin "$BRANCH" --force
+
+        # Instalar gh CLI para abrir PR (si no está disponible)
+        if ! command -v gh >/dev/null 2>&1; then
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install -y gh
+        fi
+
+        # Autenticar gh con el PAT (no se imprime)
+        echo "${GIT_PAT}" | gh auth login --with-token
+
+        # Crear PR desde la rama creada hacia main
+        gh pr create --title "ci: update data and models [automated]" --body "Automated update of data and models by CI pipeline." --base main --head "$BRANCH" --label "ci-outputs" || true
+
+    - name: Cleanup (always)
+      if: always()
+      run: |
+        # Restaurar origin a URL pública (sin exponer token)
+        git remote set-url origin "https://github.com/${{ github.repository }}.git" || true
